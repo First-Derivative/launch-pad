@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ashhatz/launch-pad/internal/tmux"
 	"github.com/spf13/cobra"
@@ -23,11 +25,16 @@ By default, creates a new session and attaches to it.
 Session name is derived from the directory basename, or use -t to override.
 
 Examples:
-  launch                    # Create+attach, name from CWD
-  launch ~/dev/foo          # Create+attach, name="foo", dir=~/dev/foo
-  launch -t myproj          # Create+attach, name="myproj", dir=CWD
-  launch -t myproj ~/dev/foo  # Create+attach, name="myproj", dir=~/dev/foo
-  launch -a mysession       # Attach to existing "mysession"`,
+  launch                          # Create+attach, name from CWD
+  launch ~/dev/foo                # Create+attach, name="foo", dir=~/dev/foo
+  launch -t myproj                # Create+attach, name="myproj", dir=CWD
+  launch -t myproj ~/dev/foo      # Create+attach, name="myproj", dir=~/dev/foo
+  launch -a mysession             # Attach to existing "mysession"
+  launch -p plp                   # PLP profile, default name+dir
+  launch -p plp ~/dev/plp-wt      # PLP profile, name from path basename
+  launch -p plp -t feat ~/dev/plp-wt  # PLP profile, custom name+dir
+  launch -p ai                        # AI profile, oc + claude side by side
+  launch -p ai -t my-ai ~/dev/foo     # AI profile, custom name+dir`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: run,
 }
@@ -35,7 +42,7 @@ Examples:
 func init() {
 	rootCmd.Flags().StringVarP(&attachName, "attach", "a", "", "Attach to a named session (ignores path and -t)")
 	rootCmd.Flags().StringVarP(&createName, "create", "t", "", "Override session name when creating")
-	rootCmd.Flags().StringVarP(&profileName, "profile", "p", "", "Load a named profile configuration (ignores all other flags)")
+	rootCmd.Flags().StringVarP(&profileName, "profile", "p", "", "Load a named profile configuration (combines with -t and path)")
 }
 
 // Execute runs the root command.
@@ -49,13 +56,78 @@ func run(cmd *cobra.Command, args []string) error {
 		if profileName == "" {
 			return fmt.Errorf("-p requires a profile name")
 		}
-		switch profileName {
+		switch strings.ToLower(profileName) {
 		case "plp":
-			sessionName := "plp"
+			// Resolve directory: positional arg > profile default
+			var dir string
+			if len(args) > 0 {
+				d, err := filepath.Abs(args[0])
+				if err != nil {
+					return fmt.Errorf("failed to resolve path '%s': %w", args[0], err)
+				}
+				dir = d
+			} else {
+				homeDir, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("failed to get home directory: %w", err)
+				}
+				dir = homeDir + "/dev/plp-mono"
+			}
+
+			// Resolve session name: -t flag > path basename > profile default
+			var sessionName string
+			if cmd.Flags().Changed("create") {
+				if createName == "" {
+					return fmt.Errorf("-t requires a session name")
+				}
+				sessionName = createName
+			} else if len(args) > 0 {
+				sessionName = filepath.Base(dir)
+			} else {
+				sessionName = "plp"
+			}
+
 			if tmux.HasSession(sessionName) {
 				return fmt.Errorf("session '%s' already exists. Use -a %s to attach", sessionName, sessionName)
 			}
-			if err := tmux.CreatePLPSession(); err != nil {
+			if err := tmux.CreatePLPSession(sessionName, dir); err != nil {
+				return err
+			}
+			return tmux.AttachSession(sessionName)
+		case "ai":
+			// Resolve directory: positional arg > CWD
+			var dir string
+			if len(args) > 0 {
+				d, err := filepath.Abs(args[0])
+				if err != nil {
+					return fmt.Errorf("failed to resolve path '%s': %w", args[0], err)
+				}
+				dir = d
+			} else {
+				d, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get working directory: %w", err)
+				}
+				dir = d
+			}
+
+			// Resolve session name: -t flag > path basename > profile default
+			var sessionName string
+			if cmd.Flags().Changed("create") {
+				if createName == "" {
+					return fmt.Errorf("-t requires a session name")
+				}
+				sessionName = createName
+			} else if len(args) > 0 {
+				sessionName = filepath.Base(dir)
+			} else {
+				sessionName = "ai"
+			}
+
+			if tmux.HasSession(sessionName) {
+				return fmt.Errorf("session '%s' already exists. Use -a %s to attach", sessionName, sessionName)
+			}
+			if err := tmux.CreateAISession(sessionName, dir); err != nil {
 				return err
 			}
 			return tmux.AttachSession(sessionName)
