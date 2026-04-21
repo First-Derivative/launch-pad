@@ -15,8 +15,9 @@ func HasSession(name string) bool {
 
 // CreateSession creates a new detached tmux session with the standard layout.
 // Layout:
-//   - Window "code": pane 0 (90%) runs nvim, pane 1 (10%) runs oc
-//   - Window "tools": pane 0 (30%) runs lazygit, pane 1 (70%) empty
+//   - Window "code": pane 0 (35%) runs lazygit, pane 1 (65%) runs nvim
+//   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
+//   - Window "bash": pane 0 (50%) empty, pane 1 (50%) empty
 func CreateSession(name, dir string) error {
 	commands := []struct {
 		args []string
@@ -24,25 +25,31 @@ func CreateSession(name, dir string) error {
 		// Create detached session with "code" window
 		{[]string{"new-session", "-d", "-s", name, "-n", "code", "-c", dir}},
 
-		// Split "code" window horizontally, new pane is 10%
-		{[]string{"split-window", "-h", "-t", name + ":code", "-p", "10", "-c", dir}},
+		// Split "code" window horizontally: pane 0 = 35% lazygit, pane 1 = 65% nvim
+		{[]string{"split-window", "-h", "-t", name + ":code", "-p", "65", "-c", dir}},
 
 		// Send commands to "code" window panes
-		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
-		{[]string{"send-keys", "-t", name + ":code.1", "oc", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.0", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.1", "nvim .", "Enter"}},
 
-		// Create "tools" window
-		{[]string{"new-window", "-t", name, "-n", "tools", "-c", dir}},
+		// Create "ai" window
+		{[]string{"new-window", "-t", name, "-n", "ai", "-c", dir}},
 
-		// Split "tools" window horizontally, new pane is 70%
-		{[]string{"split-window", "-h", "-t", name + ":tools", "-p", "70", "-c", dir}},
+		// Split "ai" window horizontally 50/50
+		{[]string{"split-window", "-h", "-t", name + ":ai", "-p", "50", "-c", dir}},
 
-		// Send lazygit command to "tools" window left pane
-		{[]string{"send-keys", "-t", name + ":tools.0", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
+		// Send commands to "ai" window panes
+		{[]string{"send-keys", "-t", name + ":ai.0", "oc", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":ai.1", "claude", "Enter"}},
 
-		// Select "code" window and left pane
-		{[]string{"select-window", "-t", name + ":code"}},
-		{[]string{"select-pane", "-t", name + ":code.0"}},
+		// Create "bash" window
+		{[]string{"new-window", "-t", name, "-n", "bash", "-c", dir}},
+
+		// Split "bash" window horizontally 50/50
+		{[]string{"split-window", "-h", "-t", name + ":bash", "-p", "50", "-c", dir}},
+
+		// Select "ai" window
+		{[]string{"select-window", "-t", name + ":ai"}},
 	}
 
 	for _, c := range commands {
@@ -58,57 +65,90 @@ func CreateSession(name, dir string) error {
 
 // CreatePLPSession creates a new detached tmux session with the PLP project layout.
 // Layout:
-//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs oc
-//   - Window "tools": 4 panes with lazygit, api-gateway, web-app, and docker compose
-func CreatePLPSession() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	name := "plp"
-	dir := homeDir + "/dev/plp-mono"
-
+//   - Window "command-center": single pane runs command-center
+//   - Window "code": pane 0 (35%) runs lazygit, pane 1 (65%) runs nvim
+//   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
+//   - Window "bash": 3 panes — api-gateway (top-left), web-app (top-right), docker compose (bottom)
+func CreatePLPSession(name, dir string) error {
 	commands := []struct {
 		args []string
 	}{
-		// Create detached session with "code" window
-		{[]string{"new-session", "-d", "-s", name, "-n", "code", "-c", dir}},
+		// Create detached session with "command-center" window
+		{[]string{"new-session", "-d", "-s", name, "-n", "command-center", "-c", dir}},
 
-		// Split "code" window horizontally, new pane is 20%
-		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "20%", "-c", dir}},
+		// Send command to "command-center" window
+		{[]string{"send-keys", "-t", name + ":command-center", "command-center", "Enter"}},
+
+		// Create "code" window
+		{[]string{"new-window", "-t", name, "-n", "code", "-c", dir}},
+
+		// Split "code" window horizontally: pane 0 = 35% lazygit, pane 1 = 65% nvim
+		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "65%", "-c", dir}},
 
 		// Send commands to "code" window panes
-		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
-		{[]string{"send-keys", "-t", name + ":code.1", "oc", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.0", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.1", "nvim .", "Enter"}},
 
-		// Create "tools" window
-		{[]string{"new-window", "-t", name, "-n", "tools", "-c", dir}},
+		// Create "ai" window
+		{[]string{"new-window", "-t", name, "-n", "ai", "-c", dir}},
 
-		// Split "tools" window horizontally (30% left, 70% right)
-		{[]string{"split-window", "-h", "-t", name + ":tools", "-l", "70%", "-c", dir}},
+		// Split "ai" window horizontally 50/50
+		{[]string{"split-window", "-h", "-t", name + ":ai", "-l", "50%", "-c", dir}},
 
-		// Split the right pane (pane 1) vertically into top and bottom (30% top, 70% bottom)
-		{[]string{"split-window", "-v", "-t", name + ":tools.1", "-l", "70%", "-c", dir}},
+		// Send commands to "ai" window panes
+		{[]string{"send-keys", "-t", name + ":ai.0", "oc", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":ai.1", "claude", "Enter"}},
 
-		// Split the top right pane (pane 1) horizontally into left and right (50/50)
-		{[]string{"split-window", "-h", "-t", name + ":tools.1", "-c", dir}},
+		// Create "bash" window
+		{[]string{"new-window", "-t", name, "-n", "bash", "-c", dir}},
+
+		// Split "bash" window vertically: top 30%, bottom 70%
+		{[]string{"split-window", "-v", "-t", name + ":bash", "-l", "70%", "-c", dir}},
+
+		// Split top pane horizontally 50/50
+		{[]string{"split-window", "-h", "-t", name + ":bash.0", "-c", dir}},
 
 		// Final layout:
-		// - Pane 0: Left (30%) - lazygit
-		// - Pane 1: Top left of right area
-		// - Pane 2: Top right of right area
-		// - Pane 3: Bottom (70% height)
+		// - Pane 0: Top left - api-gateway
+		// - Pane 1: Top right - web-app
+		// - Pane 2: Bottom (70% height) - docker compose
 
-		// Send commands to "tools" window panes
-		{[]string{"send-keys", "-t", name + ":tools.0", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
-		{[]string{"send-keys", "-t", name + ":tools.1", "yarn workspace api-gateway-lambdas run dev", "Enter"}},
-		{[]string{"send-keys", "-t", name + ":tools.2", "yarn workspace web-app run dev", "Enter"}},
-		{[]string{"send-keys", "-t", name + ":tools.3", "docker compose up -d", "Enter"}},
+		// Send commands to "bash" window panes
+		{[]string{"send-keys", "-t", name + ":bash.0", "yarn workspace api-gateway-lambdas run dev", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":bash.1", "yarn workspace web-app run dev", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":bash.2", "docker compose up -d", "Enter"}},
 
-		// Select "code" window and left pane
-		{[]string{"select-window", "-t", name + ":code"}},
-		{[]string{"select-pane", "-t", name + ":code.0"}},
+		// Select "ai" window
+		{[]string{"select-window", "-t", name + ":ai"}},
+	}
+
+	for _, c := range commands {
+		cmd := exec.Command("tmux", c.args...)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("tmux %v failed: %w", c.args[0], err)
+		}
+	}
+
+	return nil
+}
+
+// CreateAISession creates a new detached tmux session with two panes for AI tools.
+// Layout:
+//   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
+func CreateAISession(name, dir string) error {
+	commands := []struct {
+		args []string
+	}{
+		// Create detached session with "ai" window
+		{[]string{"new-session", "-d", "-s", name, "-n", "ai", "-c", dir}},
+
+		// Split "ai" window horizontally 50/50
+		{[]string{"split-window", "-h", "-t", name + ":ai", "-l", "50%", "-c", dir}},
+
+		// Send commands to "ai" window panes
+		{[]string{"send-keys", "-t", name + ":ai.0", "oc", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":ai.1", "claude", "Enter"}},
 	}
 
 	for _, c := range commands {
