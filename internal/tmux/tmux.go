@@ -15,7 +15,7 @@ func HasSession(name string) bool {
 
 // CreateSession creates a new detached tmux session with the standard layout.
 // Layout:
-//   - Window "code": pane 0 (35%) runs lazygit, pane 1 (65%) runs nvim
+//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs lazygit
 //   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
 //   - Window "bash": pane 0 (50%) empty, pane 1 (50%) empty
 func CreateSession(name, dir string) error {
@@ -25,12 +25,12 @@ func CreateSession(name, dir string) error {
 		// Create detached session with "code" window
 		{[]string{"new-session", "-d", "-s", name, "-n", "code", "-c", dir}},
 
-		// Split "code" window horizontally: pane 0 = 35% lazygit, pane 1 = 65% nvim
-		{[]string{"split-window", "-h", "-t", name + ":code", "-p", "65", "-c", dir}},
+		// Split "code" window horizontally: pane 0 = 80% nvim, pane 1 = 20% lazygit
+		{[]string{"split-window", "-h", "-t", name + ":code", "-p", "20", "-c", dir}},
 
 		// Send commands to "code" window panes
-		{[]string{"send-keys", "-t", name + ":code.0", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
-		{[]string{"send-keys", "-t", name + ":code.1", "nvim .", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.1", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
 
 		// Create "ai" window
 		{[]string{"new-window", "-t", name, "-n", "ai", "-c", dir}},
@@ -66,9 +66,9 @@ func CreateSession(name, dir string) error {
 // CreatePLPSession creates a new detached tmux session with the PLP project layout.
 // Layout:
 //   - Window "command-center": single pane runs command-center
-//   - Window "code": pane 0 (35%) runs lazygit, pane 1 (65%) runs nvim
+//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs lazygit
 //   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
-//   - Window "bash": 3 panes — api-gateway (top-left), web-app (top-right), docker compose (bottom)
+//   - Window "bash": 3 panes — empty bash (top-left), web-app (top-right), docker compose (bottom)
 func CreatePLPSession(name, dir string) error {
 	commands := []struct {
 		args []string
@@ -82,12 +82,12 @@ func CreatePLPSession(name, dir string) error {
 		// Create "code" window
 		{[]string{"new-window", "-t", name, "-n", "code", "-c", dir}},
 
-		// Split "code" window horizontally: pane 0 = 35% lazygit, pane 1 = 65% nvim
-		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "65%", "-c", dir}},
+		// Split "code" window horizontally: pane 0 = 80% nvim, pane 1 = 20% lazygit
+		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "20%", "-c", dir}},
 
 		// Send commands to "code" window panes
-		{[]string{"send-keys", "-t", name + ":code.0", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
-		{[]string{"send-keys", "-t", name + ":code.1", "nvim .", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.1", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
 
 		// Create "ai" window
 		{[]string{"new-window", "-t", name, "-n", "ai", "-c", dir}},
@@ -109,12 +109,11 @@ func CreatePLPSession(name, dir string) error {
 		{[]string{"split-window", "-h", "-t", name + ":bash.0", "-c", dir}},
 
 		// Final layout:
-		// - Pane 0: Top left - api-gateway
+		// - Pane 0: Top left - empty bash
 		// - Pane 1: Top right - web-app
 		// - Pane 2: Bottom (70% height) - docker compose
 
 		// Send commands to "bash" window panes
-		{[]string{"send-keys", "-t", name + ":bash.0", "yarn workspace api-gateway-lambdas run dev", "Enter"}},
 		{[]string{"send-keys", "-t", name + ":bash.1", "yarn workspace web-app run dev", "Enter"}},
 		{[]string{"send-keys", "-t", name + ":bash.2", "docker compose up -d", "Enter"}},
 
