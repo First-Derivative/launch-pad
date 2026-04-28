@@ -73,11 +73,8 @@ func CreatePLPSession(name, dir string) error {
 	commands := []struct {
 		args []string
 	}{
-		// Create detached session with "command-center" window
-		{[]string{"new-session", "-d", "-s", name, "-n", "command-center", "-c", dir}},
-
-		// Send command to "command-center" window
-		{[]string{"send-keys", "-t", name + ":command-center", "command-center", "Enter"}},
+		// Start command-center directly to avoid racing shell startup in the first pane.
+		{[]string{"new-session", "-d", "-s", name, "-n", "command-center", "-c", dir, "command-center"}},
 
 		// Create "code" window
 		{[]string{"new-window", "-t", name, "-n", "code", "-c", dir}},
@@ -162,14 +159,19 @@ func CreateAISession(name, dir string) error {
 }
 
 // AttachSession attaches to an existing tmux session.
-// This replaces the current process with tmux.
+// When already inside tmux ($TMUX set), switches the current client instead
+// so the user doesn't have to detach first.
 func AttachSession(name string) error {
 	tmuxPath, err := exec.LookPath("tmux")
 	if err != nil {
 		return fmt.Errorf("tmux not found: %w", err)
 	}
 
-	// Use syscall.Exec to replace the current process
-	// This is necessary for tmux attach to work properly
+	if os.Getenv("TMUX") != "" {
+		cmd := exec.Command(tmuxPath, "switch-client", "-t", name)
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+
 	return execSyscall(tmuxPath, []string{"tmux", "attach-session", "-t", name}, os.Environ())
 }
