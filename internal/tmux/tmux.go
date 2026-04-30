@@ -15,7 +15,7 @@ func HasSession(name string) bool {
 
 // CreateSession creates a new detached tmux session with the standard layout.
 // Layout:
-//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs lazygit
+//   - Window "code": pane 0 (90%) runs nvim, pane 1 (10%) runs lazygit
 //   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
 //   - Window "bash": pane 0 (50%) empty, pane 1 (50%) empty
 func CreateSession(name, dir string) error {
@@ -25,8 +25,8 @@ func CreateSession(name, dir string) error {
 		// Create detached session with "code" window
 		{[]string{"new-session", "-d", "-s", name, "-n", "code", "-c", dir}},
 
-		// Split "code" window horizontally: pane 0 = 80% nvim, pane 1 = 20% lazygit
-		{[]string{"split-window", "-h", "-t", name + ":code", "-p", "20", "-c", dir}},
+		// Split "code" window horizontally: pane 0 = 90% nvim, pane 1 = 10% lazygit
+		{[]string{"split-window", "-h", "-t", name + ":code", "-p", "10", "-c", dir}},
 
 		// Send commands to "code" window panes
 		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
@@ -66,7 +66,7 @@ func CreateSession(name, dir string) error {
 // CreatePLPSession creates a new detached tmux session with the PLP project layout.
 // Layout:
 //   - Window "command-center": single pane runs command-center
-//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs lazygit
+//   - Window "code": pane 0 (90%) runs nvim, pane 1 (10%) runs lazygit
 //   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
 //   - Window "bash": 3 panes — empty bash (top-left), web-app (top-right), docker compose (bottom)
 func CreatePLPSession(name, dir string) error {
@@ -79,8 +79,8 @@ func CreatePLPSession(name, dir string) error {
 		// Create "code" window
 		{[]string{"new-window", "-t", name, "-n", "code", "-c", dir}},
 
-		// Split "code" window horizontally: pane 0 = 80% nvim, pane 1 = 20% lazygit
-		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "20%", "-c", dir}},
+		// Split "code" window horizontally: pane 0 = 90% nvim, pane 1 = 10% lazygit
+		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "10%", "-c", dir}},
 
 		// Send commands to "code" window panes
 		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
@@ -131,7 +131,7 @@ func CreatePLPSession(name, dir string) error {
 
 // CreateCodeSession creates a new detached tmux session with code + ai windows.
 // Layout:
-//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs lazygit
+//   - Window "code": pane 0 (90%) runs nvim, pane 1 (10%) runs lazygit
 //   - Window "ai": single pane runs claude
 func CreateCodeSession(name, dir string) error {
 	commands := []struct {
@@ -140,8 +140,8 @@ func CreateCodeSession(name, dir string) error {
 		// Create detached session with "code" window
 		{[]string{"new-session", "-d", "-s", name, "-n", "code", "-c", dir}},
 
-		// Split "code" window horizontally: pane 0 = 80% nvim, pane 1 = 20% lazygit
-		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "20%", "-c", dir}},
+		// Split "code" window horizontally: pane 0 = 90% nvim, pane 1 = 10% lazygit
+		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "10%", "-c", dir}},
 
 		// Send commands to "code" window panes
 		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
