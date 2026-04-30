@@ -129,6 +129,43 @@ func CreatePLPSession(name, dir string) error {
 	return nil
 }
 
+// CreateCodeSession creates a new detached tmux session with code + ai windows.
+// Layout:
+//   - Window "code": pane 0 (80%) runs nvim, pane 1 (20%) runs lazygit
+//   - Window "ai": single pane runs claude
+func CreateCodeSession(name, dir string) error {
+	commands := []struct {
+		args []string
+	}{
+		// Create detached session with "code" window
+		{[]string{"new-session", "-d", "-s", name, "-n", "code", "-c", dir}},
+
+		// Split "code" window horizontally: pane 0 = 80% nvim, pane 1 = 20% lazygit
+		{[]string{"split-window", "-h", "-t", name + ":code", "-l", "20%", "-c", dir}},
+
+		// Send commands to "code" window panes
+		{[]string{"send-keys", "-t", name + ":code.0", "nvim .", "Enter"}},
+		{[]string{"send-keys", "-t", name + ":code.1", `eval "$(ssh-agent -s)" && ssh-add ~/ssh-keys/opus && lazygit`, "Enter"}},
+
+		// Create "ai" window with single pane running claude
+		{[]string{"new-window", "-t", name, "-n", "ai", "-c", dir}},
+		{[]string{"send-keys", "-t", name + ":ai", "claude", "Enter"}},
+
+		// Select "code" window
+		{[]string{"select-window", "-t", name + ":code"}},
+	}
+
+	for _, c := range commands {
+		cmd := exec.Command("tmux", c.args...)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("tmux %v failed: %w", c.args[0], err)
+		}
+	}
+
+	return nil
+}
+
 // CreateAISession creates a new detached tmux session with two panes for AI tools.
 // Layout:
 //   - Window "ai": pane 0 (50%) runs oc, pane 1 (50%) runs claude
